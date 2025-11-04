@@ -111,3 +111,55 @@ src/
 ## Notes
 - Aloware: We currently emit facts only for outbound events (requirement). Inbound events are ignored by the adapter.
 - HubSpot: Adapter is deferred until requirements are finalized; reference enrichment patterns are captured in the vendored SDKs and the separate reference repo.
+
+## ETL workflow: function chain and responsibilities
+
+High-level chain for a single webhook request:
+
+1) Entry (runtime-specific)
+- Local dev: `src/entrypoints/server/index.ts` receives `POST /webhook/:source`
+- Lambda: `src/entrypoints/lambda/handler.ts` receives API Gateway event
+
+2) Normalize request
+- Both entrypoints build an `IngestEnvelope` (source, headers, body, receivedAt). This step is trivial; the `src/ingest/router.ts` helper exists to avoid duplicating envelope-building in tests or other callers.
+
+3) Orchestrate
+- `src/index.ts` → `handleIngest(envelope)` is the orchestrator.
+  - Chooses adapter: `ALOWARE` → `alowareAdapter`, `HUBSPOT` → `hubspotAdapter` (stub for now)
+  - Runs adapter to produce:
+    - `events: FactEventRow[]` (atomic facts to be written)
+    - `dimHints: { agentIds, dates, metrics }` (keys of dimension rows that must exist)
+  - Runs `withinBatchDedup(events)` to drop duplicate `eventId`s within a single webhook handling (no-op if only one event)
+  - Calls `ensureDims(dimHints)` to upsert required dimension rows in Power BI (stub now; will call SDK)
+  - Calls `postFactEvents(events)` to write fact rows into Power BI (stub now; will call SDK)
+  - Returns `{ processed, posted }`
+
+4) Cross-request idempotency (to be wired next)
+- `src/integrations/idempotency/ledger.repo.ts` will implement `checkAndMark(dedupKey)` using DynamoDB conditional writes
+- Purpose: guard against provider retries/concurrent deliveries producing duplicate facts across separate requests
+
+Why both within-batch and cross-request dedup?
+- Within-batch protects against accidental duplicates an adapter might emit inside one request
+- Cross-request protects against duplicate deliveries from the source (retries, race conditions)
+
+## Why `src/integrations/*` instead of directly using `sdks/*` everywhere?
+
+Think of `sdks/*` as general-purpose libraries and `src/integrations/*` as this app’s boundary layer that adapts those libraries to project-specific needs.
+
+- `sdks/power-bi-sdk`: a reusable client (auth, retries, rate limits, batching). It knows nothing about our dataset/table names or our dimension semantics.
+- `src/integrations/powerbi/*`: thin, app-specific wrappers:
+  - `powerbi.sdk.ts`: a shim surface to construct/configure the client and centralize options (base URL, logging, rate limits). This keeps the rest of the app decoupled from a specific SDK constructor shape and makes mocking/testing easy.
+  - `dataset.repo.ts`: business-facing helpers (e.g., ensure dataset exists with our exact schema, clear dataset for re-seeding).
+  - `tables.repo.ts`: table-level helpers (e.g., add rows to `FactEvent`, upsert dims) with our naming conventions.
+
+This layering gives us:
+- Isolation: if we swap SDK versions or migrate to Fabric RTI later, we change a small surface.
+- Testability: repositories are easy to stub without pulling in the whole SDK.
+- Cohesion: the rest of the app calls a small set of app-centric methods.
+
+Similar rationale for idempotency (DynamoDB):
+- We don’t vendor an AWS SDK in `sdks/`. Instead, `src/integrations/idempotency/*` provides a small wrapper (`dynamo.sdk.ts`) and a repository (`ledger.repo.ts`) that encapsulate our table schema and conditional-write logic. The rest of the app calls `checkAndMark(dedupKey)` without knowing AWS details.
+
+Rule of thumb:
+- `sdks/*` = reusable, external-style libraries
+- `src/integrations/*` = this app’s adapter layer for those libraries (project-specific behaviors, schemas, naming)

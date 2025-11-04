@@ -41,11 +41,13 @@ function isOutbound(eventName?: string, direction?: number | null): boolean {
   return false; // default conservative
 }
 
-function inferMetric(eventName?: string, typeCode?: number | null): MetricID {
+function inferMetric(eventName?: string, typeCode?: number | null): MetricID | null {
   const name = (eventName || "").toLowerCase();
-  if (name.includes("text") || name.includes("sms")) return "TEXTS";
-  if (typeCode === 2) return "TEXTS";
-  return "CALLS";
+  const isText = name.includes("text") || name.includes("sms") || typeCode === 2;
+  const isCall = name.includes("call") || typeCode === 1;
+  if (isText) return "TEXTS";
+  if (isCall) return "CALLS";
+  return null; // unknown type → do not emit
 }
 
 export function alowareAdapter(envelope: IngestEnvelope): AdapterResult {
@@ -61,6 +63,10 @@ export function alowareAdapter(envelope: IngestEnvelope): AdapterResult {
   }
 
   const metric = inferMetric(eventName, typeof body?.type === "number" ? body.type : null);
+  if (!metric) {
+    // Unknown event type; skip safely (no misclassification)
+    return { events: [], dimHints: { agentIds: [], dates: [], metrics: [] } };
+  }
 
   // Identify agent
   const agentId = String(body?.owner_id ?? body?.user_id ?? "unknown");
