@@ -19,3 +19,10 @@ yarn-error.log*
 # Builds
 coverage/
 *.tsbuildinfo
+
+# Temp & samples
+.tmp_hubspot_pbi_etl_pipeline/
+.tmp*/
+docs/aloware data/
+docs/*_aloware*.json
+docs/*_hubspot*.json
