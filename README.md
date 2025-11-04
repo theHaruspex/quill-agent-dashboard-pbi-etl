@@ -102,6 +102,12 @@ src/
   - Health: `GET http://localhost:3000/health`
   - Webhooks: `POST http://localhost:3000/webhook/aloware` (body can be raw Aloware payload or `{ parsedBody: { body, event } }`).
 
+### Aloware webhook harness (verbose)
+- Run samples through the current workflow with detailed logs:
+  - `npm run harness:aloware -- --dir docs/aloware-webhooks --limit 25`
+  - `npm run harness:aloware -- --dir "docs/aloware data" --pattern "_aloware.json" --limit 10`
+- Output includes event name, direction/type, timestamps, agent, timezone, and `{ processed, posted }` per file, plus a summary.
+
 ## Environment
 - Copy `env.example` to `.env` at the repo root and fill in values. The app auto-loads `.env` in local/server and lambda entrypoints.
   - Power BI: `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`, `POWERBI_WORKSPACE_ID`, `POWERBI_DATASET_ID`
