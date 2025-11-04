@@ -1,4 +1,5 @@
 import { AdapterResult, FactEventRow, IngestEnvelope, MetricID } from "../domain/types";
+import { logger } from "../config/logger";
 
 function toDateKeyInTz(date: Date, timeZone?: string): string {
   try {
@@ -58,13 +59,24 @@ export function alowareAdapter(envelope: IngestEnvelope): AdapterResult {
 
   const direction: number | null = typeof body?.direction === "number" ? body.direction : null;
   const outbound = isOutbound(eventName, direction);
+  logger.debug("adapter:aloware:input", {
+    event: eventName,
+    direction,
+    type: body?.type,
+    created_at: body?.created_at,
+    agent: body?.owner_id ?? body?.user_id,
+    timezone: body?.contact?.timezone,
+    outbound,
+  });
   if (!outbound) {
+    logger.debug("adapter:aloware:skip:not_outbound");
     return { events: [], dimHints: { agentIds: [], dates: [], metrics: [] } };
   }
 
   const metric = inferMetric(eventName, typeof body?.type === "number" ? body.type : null);
   if (!metric) {
     // Unknown event type; skip safely (no misclassification)
+    logger.debug("adapter:aloware:skip:unknown_metric");
     return { events: [], dimHints: { agentIds: [], dates: [], metrics: [] } };
   }
 
@@ -93,6 +105,7 @@ export function alowareAdapter(envelope: IngestEnvelope): AdapterResult {
     metricId: metric,
     notes,
   };
+  logger.debug("adapter:aloware:emit", { event });
 
   return {
     events: [event],

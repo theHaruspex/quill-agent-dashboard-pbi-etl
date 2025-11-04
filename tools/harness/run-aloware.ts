@@ -12,8 +12,7 @@ try { require("dotenv").config(); } catch (_) {}
 
 import { promises as fs } from "fs";
 import path from "path";
-import { handleIngest } from "../../src/index";
-import { IngestEnvelope } from "../../src/domain/types";
+import type { IngestEnvelope } from "../../src/domain/types";
 
 interface Args {
   dir?: string;
@@ -50,6 +49,8 @@ async function listFilesRecursive(targetDir: string): Promise<string[]> {
 
 async function run() {
   const args = parseArgs();
+  // Default to very verbose logging for harness runs unless user overrides
+  if (!process.env.LOG_LEVEL) process.env.LOG_LEVEL = "debug";
   const defaultDirs = [
     path.resolve("docs/aloware-webhooks"),
     path.resolve("docs/aloware data"),
@@ -61,8 +62,8 @@ async function run() {
   if (args.pattern) {
     files = files.filter((f) => f.includes(args.pattern!));
   }
-  // Prefer JSON-like
-  files = files.filter((f) => f.toLowerCase().endsWith(".json") || f.toLowerCase().endsWith(".raw"));
+  // Only process JSON files; ignore any .raw capture files
+  files = files.filter((f) => f.toLowerCase().endsWith(".json"));
   files.sort();
   const limit = args.limit && args.limit > 0 ? args.limit : files.length;
   const chosen = files.slice(0, limit);
@@ -89,14 +90,7 @@ async function run() {
 
       // Normalize known wrapper shapes
       const body = payload?.parsedBody ? payload : { parsedBody: payload?.parsedBody ?? payload };
-      const eventName = body?.parsedBody?.event;
-      const direction = body?.parsedBody?.body?.direction;
-      const type = body?.parsedBody?.body?.type;
-      const createdAt = body?.parsedBody?.body?.created_at;
-      const agent = body?.parsedBody?.body?.owner_id ?? body?.parsedBody?.body?.user_id;
-      const tz = body?.parsedBody?.body?.contact?.timezone;
       console.log(`[harness] file: ${path.basename(file)}`);
-      console.log(`  event=${eventName} dir=${direction} type=${type} created_at=${createdAt} agent=${agent} tz=${tz}`);
 
       const envelope: IngestEnvelope = {
         source: "ALOWARE",
@@ -105,8 +99,8 @@ async function run() {
         receivedAt: new Date().toISOString(),
       };
 
+      const { handleIngest } = await import("../../src/index");
       const result = await handleIngest(envelope);
-      console.log(`  result processed=${result.processed} posted=${result.posted}`);
       totalProcessed += result.processed;
       totalPosted += result.posted;
     } catch (err) {

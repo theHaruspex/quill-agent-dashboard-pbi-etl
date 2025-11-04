@@ -1,7 +1,8 @@
 import { FactEventRow } from "../domain/types";
+import { logger } from "../config/logger";
 
 export async function postFactEvents(_rows: FactEventRow[]): Promise<{ posted: number }> {
-  // Placeholder: would push rows to Power BI via SDK
+  logger.debug("facts:post", { count: _rows.length });
   return { posted: _rows.length };
 }
 

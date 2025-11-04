@@ -32,4 +32,6 @@ export function createLogger(level: LogLevel = "info"): Logger {
 
 export default createLogger;
 
+export const logger: Logger = createLogger((process.env.LOG_LEVEL as LogLevel) || "info");
+
 
