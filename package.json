@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "harness:aloware": "tsx tools/harness/run-aloware.ts"
+    "harness:aloware": "tsx tools/harness/run-aloware.ts",
+    "pbi:create-dataset": "tsx tools/pbi/create-dataset.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.13",
