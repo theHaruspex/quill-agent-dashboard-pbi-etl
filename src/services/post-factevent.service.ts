@@ -1,7 +1,7 @@
 import { FactEventRow } from "../domain/types";
 import { logger } from "../config/logger";
 import { loadConfig } from "../config/config";
-import { addRows } from "../integrations/powerbi/tables.repo";
+import { createSdkClient } from "../integrations/powerbi/powerbi.sdk";
 
 export async function postFactEvents(_rows: FactEventRow[]): Promise<{ posted: number }> {
   logger.debug("facts:post", { count: _rows.length });
@@ -23,17 +23,9 @@ export async function postFactEvents(_rows: FactEventRow[]): Promise<{ posted: n
     Notes: r.notes ?? "",
   }));
 
-  await addRows({
-    workspaceId,
-    datasetId,
-    table: "FactEvent",
-    rows,
-    auth: {
-      tenantId: cfg.powerBi.tenantId || "",
-      clientId: cfg.powerBi.clientId || "",
-      clientSecret: cfg.powerBi.clientSecret || "",
-    },
-  });
+  const client = await createSdkClient((msg, ctx) => logger.debug(msg, ctx));
+  const sink = client.getPushSink();
+  await sink.pushRows({ groupId: workspaceId, datasetId, table: "FactEvent", rows });
 
   return { posted: rows.length };
 }

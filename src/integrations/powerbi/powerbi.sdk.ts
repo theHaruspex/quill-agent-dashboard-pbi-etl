@@ -31,5 +31,26 @@ export async function getAccessToken(auth: PowerBiAuthConfig): Promise<string> {
   return token;
 }
 
+// Thin constructor around vendored SDK client to standardize creation
+export async function createSdkClient(logger?: (msg: string, ctx?: Record<string, unknown>) => void) {
+  // Import lazily to avoid ESM/CJS and TS rootDir issues
+  const moduleBase = "../../../sdks/power-bi-sdk/src/lib/";
+  const sdk: any = await import(moduleBase + "client");
+  const { loadConfig } = await import("../../config/config");
+  const cfg = loadConfig();
+  const client = new sdk.PowerBiClient(
+    {
+      tenantId: cfg.powerBi.tenantId!,
+      clientId: cfg.powerBi.clientId!,
+      clientSecret: cfg.powerBi.clientSecret!,
+    },
+    {
+      userAgent: "quill-agent-dashboard-etl/0.1.0",
+      logger,
+    }
+  );
+  return client;
+}
+
 
 
