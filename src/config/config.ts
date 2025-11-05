@@ -17,6 +17,8 @@ export interface AppConfig {
   dynamo: {
     tableName?: string;
     ttlDays?: number;
+    region?: string;
+    endpoint?: string;
   };
   hubspot: {
     privateAppToken?: string;
@@ -38,6 +40,8 @@ export function loadConfig(): AppConfig {
     dynamo: {
       tableName: process.env.DYNAMO_TABLE_NAME,
       ttlDays: process.env.DYNAMO_TTL_DAYS ? Number(process.env.DYNAMO_TTL_DAYS) : undefined,
+      region: process.env.DYNAMO_REGION,
+      endpoint: process.env.DYNAMO_ENDPOINT,
     },
     hubspot: {
       privateAppToken: process.env.HUBSPOT_PRIVATE_APP_TOKEN,
