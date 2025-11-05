@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface Logger {
@@ -11,6 +14,18 @@ export function createLogger(level: LogLevel = "info"): Logger {
   const order: LogLevel[] = ["debug", "info", "warn", "error"];
   const minIdx = order.indexOf(level);
 
+  // Initialize per-run file logger
+  const runStamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const logsDir = process.env.LOG_DIR || path.join(process.cwd(), "logs");
+  let fileStream: fs.WriteStream | null = null;
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+    const filePath = path.join(logsDir, `run-${runStamp}.log`);
+    fileStream = fs.createWriteStream(filePath, { flags: "a" });
+  } catch {
+    fileStream = null;
+  }
+
   function shouldLog(lvl: LogLevel): boolean {
     return order.indexOf(lvl) >= minIdx;
   }
@@ -18,8 +33,13 @@ export function createLogger(level: LogLevel = "info"): Logger {
   function log(lvl: LogLevel, msg: string, ctx?: Record<string, unknown>) {
     if (!shouldLog(lvl)) return;
     const payload = ctx ? ` ${JSON.stringify(ctx)}` : "";
+    const ts = new Date().toISOString();
+    const line = `${ts} [${lvl}] ${msg}${payload}`;
     // eslint-disable-next-line no-console
-    console[lvl === "debug" ? "log" : lvl](`[${lvl}] ${msg}${payload}`);
+    console[lvl === "debug" ? "log" : lvl](line);
+    try {
+      if (fileStream) fileStream.write(line + "\n");
+    } catch {}
   }
 
   return {
