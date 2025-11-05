@@ -29,3 +29,5 @@ docs/*_hubspot*.json
 sdks/hubspot-sdk/
 sdks/power-bi-sdk/
 docker/dynamodb/
+data/aloware-webhooks/
+data/aloware-data/
