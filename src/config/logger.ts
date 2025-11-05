@@ -17,11 +17,17 @@ export function createLogger(level: LogLevel = "info"): Logger {
   // Initialize per-run file logger
   const runStamp = new Date().toISOString().replace(/[:.]/g, "-");
   const logsDir = process.env.LOG_DIR || path.join(process.cwd(), "logs");
+  const enableFile = (process.env.LOG_TO_FILE || "true").toLowerCase() !== "false";
   let fileStream: fs.WriteStream | null = null;
+  let filePath: string | null = null;
   try {
-    fs.mkdirSync(logsDir, { recursive: true });
-    const filePath = path.join(logsDir, `run-${runStamp}.log`);
-    fileStream = fs.createWriteStream(filePath, { flags: "a" });
+    if (enableFile) {
+      fs.mkdirSync(logsDir, { recursive: true });
+      filePath = path.join(logsDir, `run-${runStamp}.log`);
+      fileStream = fs.createWriteStream(filePath, { flags: "a" });
+      // eslint-disable-next-line no-console
+      console.log(`[logger] writing to ${filePath}`);
+    }
   } catch {
     fileStream = null;
   }
