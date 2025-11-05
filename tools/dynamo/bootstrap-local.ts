@@ -20,6 +20,7 @@ import {
   DescribeTableCommand,
   ResourceNotFoundException,
 } from "@aws-sdk/client-dynamodb";
+import { ListTablesCommand } from "@aws-sdk/client-dynamodb";
 
 const exec = promisify(_exec);
 
@@ -89,9 +90,31 @@ async function ensureTableExists(): Promise<void> {
   console.log("[dynamo] table created");
 }
 
+async function waitForReady(timeoutMs = 15000): Promise<void> {
+  const client = buildClient();
+  const started = Date.now();
+  let attempt = 0;
+  while (Date.now() - started < timeoutMs) {
+    attempt++;
+    try {
+      await client.send(new ListTablesCommand({ Limit: 1 }));
+      console.log(`[dynamo] ready after ${attempt} attempt(s)`);
+      return;
+    } catch (e: any) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  throw new Error("DynamoDB Local did not become ready in time");
+}
+
 async function main() {
   console.log("[dynamo] endpoint:", process.env.DYNAMO_ENDPOINT || "http://localhost:8000");
   await startDockerIfRequested();
+  try {
+    await waitForReady();
+  } catch (e: any) {
+    console.log("[dynamo] wait for ready failed:", e.message);
+  }
   await ensureTableExists();
   console.log("[dynamo] done");
 }
