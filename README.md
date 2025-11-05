@@ -104,8 +104,8 @@ src/
 
 ### Aloware webhook harness (verbose)
 - Run samples through the current workflow with detailed logs:
-  - `npm run harness:aloware -- --dir docs/aloware-webhooks --limit 25`
-  - `npm run harness:aloware -- --dir "docs/aloware data" --pattern "_aloware.json" --limit 10`
+  - `npm run harness:aloware -- --dir data/aloware-webhooks --limit 25`
+  - `npm run harness:aloware -- --dir data/aloware-data --pattern "_aloware.json" --limit 10`
 - Output includes event name, direction/type, timestamps, agent, timezone, and `{ processed, posted }` per file, plus a summary.
 
 ## Environment

@@ -52,8 +52,8 @@ async function run() {
   // Default to very verbose logging for harness runs unless user overrides
   if (!process.env.LOG_LEVEL) process.env.LOG_LEVEL = "debug";
   const defaultDirs = [
-    path.resolve("docs/aloware-webhooks"),
-    path.resolve("docs/aloware data"),
+    path.resolve("data/aloware-webhooks"),
+    path.resolve("data/aloware-data"),
   ];
   const selectedDir = args.dir ? path.resolve(args.dir) : defaultDirs.find(Boolean)!;
   console.log(`[harness] scanning dir: ${selectedDir}`);
