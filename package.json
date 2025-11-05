@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "harness:aloware": "tsx tools/harness/run-aloware.ts",
     "dynamo:local": "tsx tools/dynamo/bootstrap-local.ts",
-    "pbi:create-dataset": "tsx tools/pbi/create-dataset.ts"
+    "pbi:create-dataset": "tsx tools/pbi/create-dataset.ts",
+    "pbi:clear-table": "tsx tools/pbi/clear-table.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.13",
