@@ -26,6 +26,8 @@ export interface AppConfig {
   };
   logLevel: "debug" | "info" | "warn" | "error";
   nodeEnv: "development" | "production" | "test" | string;
+  logToFile: boolean;
+  logDir?: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -49,6 +51,8 @@ export function loadConfig(): AppConfig {
     },
     logLevel: (process.env.LOG_LEVEL as AppConfig["logLevel"]) || "info",
     nodeEnv: (process.env.NODE_ENV as AppConfig["nodeEnv"]) || "development",
+    logToFile: (process.env.LOG_TO_FILE || "true").toLowerCase() !== "false",
+    logDir: process.env.LOG_DIR,
   };
 }
 
