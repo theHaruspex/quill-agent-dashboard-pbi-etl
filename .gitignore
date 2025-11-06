@@ -26,8 +26,6 @@ coverage/
 docs/aloware data/
 docs/*_aloware*.json
 docs/*_hubspot*.json
-sdks/hubspot-sdk/
-sdks/power-bi-sdk/
 docker/dynamodb/
 logs/
 data/aloware-webhooks/

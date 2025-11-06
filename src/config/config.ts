@@ -24,6 +24,9 @@ export interface AppConfig {
     privateAppToken?: string;
     clientSecretFallback?: string;
   };
+  aloware: {
+    ringGroupId?: number;
+  };
   logLevel: "debug" | "info" | "warn" | "error";
   nodeEnv: "development" | "production" | "test" | string;
   logToFile: boolean;
@@ -48,6 +51,9 @@ export function loadConfig(): AppConfig {
     hubspot: {
       privateAppToken: process.env.HUBSPOT_PRIVATE_APP_TOKEN,
       clientSecretFallback: process.env.HUBSPOT_CLIENT_SECRET,
+    },
+    aloware: {
+      ringGroupId: process.env.ALOWARE_RING_GROUP_ID ? Number(process.env.ALOWARE_RING_GROUP_ID) : undefined,
     },
     logLevel: (process.env.LOG_LEVEL as AppConfig["logLevel"]) || "info",
     nodeEnv: (process.env.NODE_ENV as AppConfig["nodeEnv"]) || "development",
