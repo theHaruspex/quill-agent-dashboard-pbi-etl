@@ -53,7 +53,7 @@ export function loadConfig(): AppConfig {
       clientSecretFallback: process.env.HUBSPOT_CLIENT_SECRET,
     },
     aloware: {
-      ringGroupId: process.env.ALOWARE_RING_GROUP_ID ? Number(process.env.ALOWARE_RING_GROUP_ID) : undefined,
+      ringGroupId: process.env.ALOWARE_RING_GROUP_ID ? Number(process.env.ALOWARE_RING_GROUP_ID) : 8465,
     },
     logLevel: (process.env.LOG_LEVEL as AppConfig["logLevel"]) || "info",
     nodeEnv: (process.env.NODE_ENV as AppConfig["nodeEnv"]) || "development",

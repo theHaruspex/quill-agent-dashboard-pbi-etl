@@ -7,6 +7,7 @@ import { AdapterResult, IngestEnvelope } from "./domain/types";
 import { logger } from "./config/logger";
 import { checkAndMark } from "./integrations/idempotency/ledger.repo";
 import { computeDedupKey } from "./ingest/idempotency";
+import { loadConfig } from "./config/config";
 
 export interface IngestResult {
   processed: number;
@@ -30,9 +31,35 @@ export async function handleIngest(envelope: IngestEnvelope): Promise<IngestResu
     logger.debug("ingest:dedup", { before: events.length, after: unique.length });
   }
 
+  // Gate by current Aloware ring group membership (authoritative roster)
+  const cfg = loadConfig();
+  const ringGroupId = cfg.aloware?.ringGroupId;
+  let allowedSet: Set<string> | undefined;
+  if (envelope.source === "ALOWARE" && ringGroupId) {
+    try {
+      const moduleBase = ".." + "/sdks/aloware-sdk/src/";
+      const aloware: any = await import(moduleBase + "index");
+      const token = process.env.ALOWARE_API_TOKEN;
+      if (!token) throw new Error("ALOWARE_API_TOKEN missing");
+      const client = new aloware.AlowareClient({ apiToken: token });
+      const report = await client.ringGroups.getAvailability({ ringGroupId });
+      allowedSet = new Set<string>(report.testResults.map((u: any) => String(u.id)));
+      logger.debug("ingest:gate:allowlist", { count: allowedSet.size, ringGroupId });
+    } catch (err: any) {
+      logger.warn("ingest:gate:error", { message: err?.message || String(err) });
+    }
+  }
+
+  const allowed = allowedSet
+    ? unique.filter((e) => allowedSet!.has(String(e.agentId)))
+    : unique;
+  if (allowed.length !== unique.length) {
+    logger.debug("ingest:gate:filtered", { before: unique.length, after: allowed.length });
+  }
+
   // Cross-request idempotency via DynamoDB ledger
-  const gated = [] as typeof unique;
-  for (const ev of unique) {
+  const gated = [] as typeof allowed;
+  for (const ev of allowed) {
     const key = computeDedupKey(envelope.source, ev);
     const isNew = await checkAndMark(key);
     logger.debug("ingest:ledger", { key, isNew });
