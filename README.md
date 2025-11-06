@@ -7,6 +7,64 @@ TypeScript service that ingests events from Aloware/HubSpot, dedupes via DynamoD
 - Dev server: `npm run dev`
 - Build: `npm run build`
 
+## NPM Scripts
+
+All available scripts in `package.json`:
+
+### Development & Build
+- **`npm run dev`**: Start development server with hot reload (`tsx watch`). Runs `src/entrypoints/server/index.ts` on `http://localhost:3000`. Auto-loads `.env` from root.
+- **`npm run build`**: Compile TypeScript (`tsc`) to `dist/`. Outputs JavaScript and type definitions.
+- **`npm run start`**: Production start (runs compiled `dist/index.js`). Requires `npm run build` first.
+- **`npm run typecheck`**: Type-check TypeScript without emitting files (`tsc --noEmit`). Useful for CI or pre-commit hooks.
+
+### Testing & Harness
+- **`npm run harness:aloware`**: Run Aloware webhook samples through the ETL workflow with verbose logging.
+  - Options:
+    - `--dir <path>`: Directory containing `.json` webhook files (default: `data/aloware-webhooks`)
+    - `--limit <n>`: Process only first N files
+    - `--pattern <glob>`: Filter files by pattern (e.g., `"_aloware.json"`)
+  - Examples:
+    - `npm run harness:aloware -- --dir data/aloware-webhooks --limit 25`
+    - `npm run harness:aloware -- --pattern "_aloware.json" --limit 10`
+  - Requirements: `.env` with Power BI and DynamoDB credentials. Outputs detailed logs per file and a summary.
+
+### DynamoDB Tools
+- **`npm run dynamo:local`**: Bootstrap DynamoDB Local via Docker and create the idempotency ledger table.
+  - Starts Docker container if `--start-docker` flag is provided
+  - Creates `QuillIdempotencyLedger` table with TTL enabled
+  - Requirements: Docker installed, `DYNAMO_TABLE_NAME` and `DYNAMO_TTL_DAYS` in `.env`
+  - Usage: `npm run dynamo:local` or `npm run dynamo:local -- --start-docker`
+- **`npm run dynamo:clear-ledger`**: Clear all rows from the DynamoDB idempotency ledger table.
+  - Deletes and recreates the table (Power BI Push Datasets don't support row-level deletes)
+  - Requirements: `DYNAMO_TABLE_NAME`, `DYNAMO_REGION` (or `DYNAMO_ENDPOINT` for local), credentials in `.env`
+
+### Power BI Tools
+- **`npm run pbi:create-dataset`**: Create a new Power BI Push Dataset in the configured workspace.
+  - Creates dataset with tables: `FactEvent`, `DimAgent`, `DimMetric`, `DimDate`, `DimShift`
+  - Options:
+    - `--name <name>`: Dataset name (default: `Quill_Agent_Realtime`)
+  - Requirements: `.env` with `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`, `POWERBI_WORKSPACE_ID`
+  - Outputs: Dataset ID (save to `POWERBI_DATASET_ID` in `.env`)
+- **`npm run pbi:clear-table`**: Delete all rows from a Power BI table.
+  - Options:
+    - `--table <name>`: Table name (default: `FactEvent`)
+    - `--dataset <id>`: Dataset ID (default: `POWERBI_DATASET_ID` from `.env`)
+  - Requirements: `.env` with Power BI credentials and `POWERBI_WORKSPACE_ID`
+  - Examples:
+    - `npm run pbi:clear-table -- --table FactEvent`
+    - `npm run pbi:clear-table -- --table DimAgent --dataset bc15d797-...`
+
+### Admin Tools
+- **`npm run admin:sync-dimagents`**: Sync `DimAgent` table from Aloware ring group membership.
+  - Actions:
+    1. DELETE all rows from `DimAgent` table
+    2. Fetch current members from ring group `ALOWARE_RING_GROUP_ID` (default: 8465)
+    3. INSERT members as `DimAgent` rows (AgentID, AgentName, Email, TimezoneIANA="", ActiveFlag=true)
+  - Requirements: `.env` with:
+    - Power BI: `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`, `POWERBI_WORKSPACE_ID`, `POWERBI_DATASET_ID`
+    - Aloware: `ALOWARE_API_TOKEN`, `ALOWARE_RING_GROUP_ID` (defaults to 8465)
+  - Uses Power BI SDK push sink for rate-limited inserts
+
 ## Source code structure (what we built and why)
 
 ```
