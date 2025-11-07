@@ -1,6 +1,6 @@
-# Proposed `src/` Architecture: Ingest + Admin Functions
+# Proposed `src/` Architecture: Workflows (Data-plane + Control-plane)
 
-This proposal extends the current ingest workflow with parallel “admin” functions to manage dimension tables (DimAgent, DimMetric, DimDate, DimShift). It preserves the existing orchestrator and adds clearly scoped services, handlers, and schemas.
+This proposal formalizes a `workflows/` layout that cleanly separates the data-plane (per-event ingest) from the control-plane (explicit, authenticated, bulk/replace jobs). It preserves existing services/integrations and focuses on deployability (one Lambda per workflow), observability, and least blast radius.
 
 ## Goals
 - Keep ingest fast, resilient, and minimal (webhook → facts).
@@ -13,16 +13,38 @@ This proposal extends the current ingest workflow with parallel “admin” func
 
 ```
 src/
+  workflows/
+    ingest/
+      orchestrator.ts          # current handleIngest moved here (no behavior change)
+      ensure.ts                # inline ensures (e.g., upsert-if-missing DimDate)
+      entrypoints/
+        server.ts              # dev route: POST /webhook/:source
+        lambda.ts              # API Gateway handler
+    dim-agent-sync/            # control-plane
+      orchestrator.ts          # clear + repopulate DimAgent from ring group 8465
+      entrypoints/
+        lambda.ts              # signed webhook/API
+      schema.ts                # request/auth schema (optional)
+    dim-metric-sync/           # control-plane
+      orchestrator.ts          # validate payload, audit/version, clear + repopulate
+      entrypoints/
+        lambda.ts
+      schema.ts                # payload + auth (Zod)
+    dim-date-seed/             # control-plane (rare)
+      orchestrator.ts          # seed/extend calendar range
+      entrypoints/
+        lambda.ts
+    dim-shift-sync/            # control-plane
+      orchestrator.ts          # rules → rows
+      entrypoints/
+        lambda.ts
+      schema.ts                # rules
   config/
     config.ts
     logger.ts
   domain/
     types.ts
     mapping.ts
-  schemas/
-    admin/
-      dimmetric.schema.ts
-      request-auth.schema.ts
   adapters/
     aloware.adapter.ts
     hubspot.adapter.ts
@@ -32,11 +54,6 @@ src/
   services/
     ensure-dims.service.ts
     post-factevent.service.ts
-    admin/
-      dimagent.sync.service.ts
-      dimmetric.sync.service.ts
-      dimdate.seed.service.ts
-      dimshift.sync.service.ts
   integrations/
     powerbi/
       powerbi.sdk.ts
@@ -45,24 +62,40 @@ src/
     idempotency/
       dynamo.sdk.ts
       ledger.repo.ts
-    admin/
-      admin-versions.repo.ts
-      audit.repo.ts
-  entrypoints/
-    server/
-      index.ts
-      admin.ts                # optional local admin server for dev
-    lambda/
-      ingest.handler.ts       # existing ingest (can remain handler.ts)
-      admin/
-        dimagent-sync.handler.ts
-        dimmetric-sync.handler.ts
-        dimdate-seed.handler.ts
-        dimshift-sync.handler.ts
-  index.ts
 ```
 
 ## Responsibilities by File/Directory
+
+### `src/workflows/ingest/`
+- `orchestrator.ts`: Main ingest flow used by both entrypoints:
+  1) Adapter (Aloware/HubSpot) → events + hints  
+  2) Within-batch dedup  
+  3) Gate by ring group membership (Aloware authoritative roster)  
+  4) Cross-request idempotency (Dynamo ledger)  
+  5) Ensure dims (minimal, per `DimHints`; typically `DimDate`)  
+  6) Post facts (rate-limited sink)
+- `ensure.ts`: Inline, surgical ensures (upsert-if-missing for keys referenced by current facts).
+- `entrypoints/server.ts`: Dev server for `/webhook/:source` → orchestrator.
+- `entrypoints/lambda.ts`: Lambda handler that builds `IngestEnvelope` and calls the orchestrator.
+
+### `src/workflows/dim-agent-sync/` (control-plane)
+- `orchestrator.ts`: Clear `DimAgent`, fetch ring group members (8465), map and insert rows. Optional: update a Dynamo-based “activeAgents set.”
+- `entrypoints/lambda.ts`: Signed webhook/API to trigger the sync.
+- `schema.ts`: Request and auth schema (HMAC/API key).
+
+### `src/workflows/dim-metric-sync/` (control-plane)
+- `orchestrator.ts`: Validate signed payload, audit+version, clear `DimMetric`, insert new monthly values.
+- `entrypoints/lambda.ts`: Signed webhook/API to apply metric updates.
+- `schema.ts`: Payload + auth schema (Zod).
+
+### `src/workflows/dim-date-seed/` (control-plane)
+- `orchestrator.ts`: Generate/extend calendar and push `DimDate` rows (rarely re-run).
+- `entrypoints/lambda.ts`: Operator-triggered seeding.
+
+### `src/workflows/dim-shift-sync/` (control-plane)
+- `orchestrator.ts`: Translate declared rules → rows; clear and insert `DimShift`.
+- `entrypoints/lambda.ts`: Signed webhook/API to apply rules.
+- `schema.ts`: Rules schema.
 
 ### `src/config/`
 - `config.ts`: Load `AppConfig` from `process.env` with safe `.env` bootstrap; includes Power BI, Dynamo, HubSpot, Aloware (ring group), logging, and future admin auth keys (e.g., `ADMIN_HMAC_SECRET` or `ADMIN_API_KEY`).
@@ -132,19 +165,19 @@ src/
 
 ## Workflow Chains
 
-### Ingest (existing)
-`entrypoint → router (build envelope) → adapter → within-batch dedup → gate by ring group → ledger check → ensure-dims → post-factevents → done`
+### Ingest (existing, moved)
+`entrypoint → router (build envelope) → adapter → within-batch dedup → gate by ring group → ledger check → ensure (inline DimDate) → post-factevents → done`
 
-### Admin: DimAgent Sync
+### Control-plane: DimAgent Sync
 `admin handler/CLI → fetch ring group 8465 → map to rows → deleteRows(DimAgent) → addRows(DimAgent) → optional cache update`
 
-### Admin: DimMetric Sync
+### Control-plane: DimMetric Sync
 `admin handler/CLI → auth + validate payload (schema) → audit + version check → deleteRows(DimMetric) → addRows(DimMetric)`
 
-### Admin: DimDate Seed
+### Control-plane: DimDate Seed
 `admin handler/CLI → generate calendar range → addRows(DimDate) (delete optional on re-seed)`
 
-### Admin: DimShift Sync
+### Control-plane: DimShift Sync
 `admin handler/CLI → rules to rows → deleteRows(DimShift) → addRows(DimShift)`
 
 ## Configuration & Security

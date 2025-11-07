@@ -98,6 +98,55 @@ src/
   index.ts
 ```
 
+## Workflows architecture (planned)
+
+We’re formalizing a workflows-first layout that separates the data-plane (per-event ingest) from the control-plane (explicit bulk/replace jobs). This improves clarity, deployability (one Lambda per workflow), and limits blast radius.
+
+### Data-plane vs Control-plane
+- **Data-plane (ingest)**: Per-event processing with minimal side effects. Inline “ensure” operations only for keys needed by the current event (e.g., upsert `DimDate` if missing). No destructive table ops.
+- **Control-plane (sync/seed)**: Explicit, authenticated jobs that clear-and-replace or bulk mutate tables (e.g., `DimAgent` refresh from Aloware ring group 8465, monthly `DimMetric` updates). Low frequency, auditable, reversible.
+
+### Target layout
+```
+src/
+  workflows/
+    ingest/
+      orchestrator.ts        # current handleIngest moved here (no behavior change)
+      ensure.ts              # inline ensures (e.g., upsert-if-missing DimDate)
+      entrypoints/
+        server.ts            # dev route: POST /webhook/:source
+        lambda.ts            # API Gateway handler
+    dim-agent-sync/          # control-plane
+      orchestrator.ts        # clear + repopulate DimAgent from ring group 8465
+      entrypoints/
+        lambda.ts            # signed webhook/API
+      schema.ts              # optional request/auth schema
+    dim-metric-sync/         # control-plane
+      orchestrator.ts        # validate payload, audit/version, clear + repopulate
+      entrypoints/
+        lambda.ts
+      schema.ts              # payload + auth
+    dim-date-seed/           # control-plane (rare)
+      orchestrator.ts        # seed/extend calendar range
+      entrypoints/
+        lambda.ts
+    dim-shift-sync/          # control-plane
+      orchestrator.ts        # rules → rows
+      entrypoints/
+        lambda.ts
+      schema.ts              # rules
+```
+
+Shared libraries remain where they are and are used by all workflows:
+- `src/services/*` reusable units (e.g., `post-factevent`, `ensure-dims`).
+- `src/integrations/*` wraps SDKs (Power BI, Dynamo) for all workflows.
+- `src/config/*`, `src/domain/*` are shared types and configuration.
+
+Migration plan (incremental, no behavior change):
+1) Move `handleIngest` to `src/workflows/ingest/orchestrator.ts` and wire `entrypoints/` for server and lambda.  
+2) Keep `ensure-dims.service.ts` and `post-factevent.service.ts` as-is; call from the orchestrator.  
+3) Add control-plane workflows (`dim-agent-sync`, `dim-metric-sync`, etc.) as distinct Lambda entrypoints with strong auth.  
+
 ### `src/config/`
 - `config.ts`: Loads runtime configuration from environment. Includes a safe, optional `.env` bootstrap (via `dotenv` if available) so root `.env` files are picked up in local/dev and lambda simulation.
 - `logger.ts`: Minimal structured logger with level control (`debug|info|warn|error`). Used by other modules as needed.
