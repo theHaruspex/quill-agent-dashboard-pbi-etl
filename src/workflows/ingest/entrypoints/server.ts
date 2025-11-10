@@ -73,3 +73,9 @@ export function startIngestServer(options?: { port?: number }): Server {
   });
   return server;
 }
+
+const isDirectExecution = typeof require !== "undefined" && require.main === module;
+
+if (isDirectExecution) {
+  startIngestServer();
+}
