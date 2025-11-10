@@ -1,13 +1,12 @@
-// Best-effort .env load in case of local lambda simulation
+// Best-effort .env load for local lambda simulation
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require("dotenv").config();
-} catch (_) {}
+} catch {}
 
-import { handleIngest } from "../../index";
-import { IngestEnvelope } from "../../domain/types";
+import { handleIngest } from "../orchestrator";
+import { IngestEnvelope } from "../../../domain/types";
 
-// Minimal local types to avoid aws-lambda dependency
 interface APIGatewayProxyEventLike {
   headers: Record<string, string | undefined>;
   body: string | null;
@@ -56,5 +55,3 @@ export async function handler(event: APIGatewayProxyEventLike): Promise<APIGatew
 }
 
 export default handler;
-
-

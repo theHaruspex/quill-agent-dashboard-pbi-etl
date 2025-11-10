@@ -12,7 +12,7 @@ TypeScript service that ingests events from Aloware/HubSpot, dedupes via DynamoD
 All available scripts in `package.json`:
 
 ### Development & Build
-- **`npm run dev`**: Start development server with hot reload (`tsx watch`). Runs `src/entrypoints/server/index.ts` on `http://localhost:3000`. Auto-loads `.env` from root.
+- **`npm run dev`**: Start development server with hot reload (`tsx watch`). Runs `src/workflows/ingest/entrypoints/server.ts` on `http://localhost:3000`. Auto-loads `.env` from root.
 - **`npm run build`**: Compile TypeScript (`tsc`) to `dist/`. Outputs JavaScript and type definitions.
 - **`npm run start`**: Production start (runs compiled `dist/index.js`). Requires `npm run build` first.
 - **`npm run typecheck`**: Type-check TypeScript without emitting files (`tsc --noEmit`). Useful for CI or pre-commit hooks.
@@ -101,9 +101,9 @@ src/
   index.ts
 ```
 
-## Workflows architecture (planned)
+### Workflows architecture (planned)
 
-We’re formalizing a workflows-first layout that separates the data-plane (per-event ingest) from the control-plane (explicit bulk/replace jobs). This improves clarity, deployability (one Lambda per workflow), and limits blast radius.
+We’re formalizing a workflows-first layout that separates the data-plane (per-event ingest) from the control-plane (explicit bulk/replace jobs). This improves clarity, deployability (one Lambda per workflow), and limits blast radius. Ingest entrypoints now live under `src/workflows/ingest/entrypoints/` exclusively.
 
 ### Data-plane vs Control-plane
 - **Data-plane (ingest)**: Per-event processing with minimal side effects. Inline “ensure” operations only for keys needed by the current event (e.g., upsert `DimDate` if missing). No destructive table ops.
@@ -191,12 +191,12 @@ Migration plan (incremental, no behavior change):
 - `dynamo.sdk.ts`: Placeholder client wrapper (configuration surface for AWS DynamoDB).
 - `ledger.repo.ts`: `checkAndMark(dedupKey)` scaffold (returns `true` for now). This will perform atomic conditional writes in DynamoDB to prevent duplicates.
 
-### `src/entrypoints/`
-- `server/index.ts`: Minimal Node `http` dev server.
+### `src/workflows/ingest/entrypoints/`
+- `server.ts`: Minimal Node `http` dev server.
   - `GET /health` — health probe.
   - `POST /webhook/aloware` or `/webhook/hubspot` — routes to orchestrator with `IngestEnvelope`.
   - Loads `.env` automatically in dev.
-- `lambda/handler.ts`: Lambda-style handler that parses the incoming event into an `IngestEnvelope` and calls the orchestrator. Also attempts `.env` loading when run locally.
+- `lambda.ts`: Lambda-style handler that parses the incoming event into an `IngestEnvelope` and calls the orchestrator. Also attempts `.env` loading when run locally.
 
 ### `src/index.ts` (orchestrator)
 - `handleIngest(envelope)`: Main flow used by both entrypoints.
@@ -233,8 +233,8 @@ Migration plan (incremental, no behavior change):
 High-level chain for a single webhook request:
 
 1) Entry (runtime-specific)
-- Local dev: `src/entrypoints/server/index.ts` receives `POST /webhook/:source`
-- Lambda: `src/entrypoints/lambda/handler.ts` receives API Gateway event
+- Local dev: `src/workflows/ingest/entrypoints/server.ts` receives `POST /webhook/:source`
+- Lambda: `src/workflows/ingest/entrypoints/lambda.ts` receives API Gateway event
 
 2) Normalize request
 - Both entrypoints build an `IngestEnvelope` (source, headers, body, receivedAt). This step is trivial; the `src/ingest/router.ts` helper exists to avoid duplicating envelope-building in tests or other callers.

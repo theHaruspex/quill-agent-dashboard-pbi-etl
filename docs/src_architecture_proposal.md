@@ -75,7 +75,7 @@ src/
   5) Ensure dims (minimal, per `DimHints`; typically `DimDate`)  
   6) Post facts (rate-limited sink)
 - `ensure.ts`: Inline, surgical ensures (upsert-if-missing for keys referenced by current facts).
-- `entrypoints/server.ts`: Dev server for `/webhook/:source` → orchestrator.
+- `entrypoints/server.ts`: Dev HTTP server (`POST /webhook/:source`).
 - `entrypoints/lambda.ts`: Lambda handler that builds `IngestEnvelope` and calls the orchestrator.
 
 ### `src/workflows/dim-agent-sync/` (control-plane)
@@ -143,17 +143,6 @@ src/
 ### `src/integrations/admin/`
 - `admin-versions.repo.ts`: Persist last-applied version/month for admin sync idempotency (e.g., DimMetric).
 - `audit.repo.ts`: Store applied payloads to S3/Dynamo with metadata for audit/rollback.
-
-### `src/entrypoints/server/`
-- `index.ts`: Dev server for `/webhook/:source` → orchestrator.
-- `admin.ts` (optional): Local admin endpoints to invoke sync/seed services in dev (auth enforced).
-
-### `src/entrypoints/lambda/`
-- `ingest.handler.ts`: Ingest lambda handler (current `handler.ts`). Parses API Gateway event, builds `IngestEnvelope`, calls orchestrator.
-- `admin/dimagent-sync.handler.ts`: Control-plane lambda to refresh `DimAgent`.
-- `admin/dimmetric-sync.handler.ts`: Admin lambda to refresh `DimMetric` from signed payload.
-- `admin/dimdate-seed.handler.ts`: Admin lambda to seed `DimDate`.
-- `admin/dimshift-sync.handler.ts`: Admin lambda to apply shift rules.
 
 ### `src/index.ts`
 - Orchestrator for ingest:
