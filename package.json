@@ -13,7 +13,8 @@
     "dynamo:clear-ledger": "tsx tools/dynamo/clear-ledger.ts",
     "pbi:create-dataset": "tsx tools/pbi/create-dataset.ts",
     "pbi:clear-table": "tsx tools/pbi/clear-table.ts",
-    "admin:sync-dimagents": "tsx tools/admin/sync-dimagents.ts"
+    "admin:sync-dimagents": "tsx tools/admin/sync-dimagents.ts",
+    "test:dimagent": "tsx tests/dimagent-sync.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.13",

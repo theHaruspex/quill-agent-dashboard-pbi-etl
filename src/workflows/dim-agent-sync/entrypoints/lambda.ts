@@ -5,7 +5,6 @@ try {
 } catch {}
 
 import { runDimAgentSync } from "../orchestrator";
-import { loadConfig } from "../../../config/config";
 
 interface APIGatewayProxyEventLike {
   headers: Record<string, string | undefined>;
@@ -20,17 +19,23 @@ interface APIGatewayProxyResultLike {
 
 export async function handler(event: APIGatewayProxyEventLike): Promise<APIGatewayProxyResultLike> {
   try {
-    const cfg = loadConfig();
-    const providedKey = event.headers?.["x-api-key"] || event.headers?.["X-API-Key"];
-    if (!cfg.admin?.apiKey || !providedKey || providedKey !== cfg.admin.apiKey) {
-      return {
-        statusCode: 401,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ok: false, error: "Unauthorized" }),
-      };
+    let dryRun = false;
+    if (event.body) {
+      try {
+        const parsed = JSON.parse(event.body);
+        if (parsed && typeof parsed === "object" && "dryRun" in parsed) {
+          dryRun = Boolean((parsed as Record<string, unknown>).dryRun);
+        }
+      } catch (err) {
+        return {
+          statusCode: 400,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ok: false, error: "Invalid JSON body" }),
+        };
+      }
     }
 
-    const result = await runDimAgentSync();
+    const result = await runDimAgentSync({ dryRun });
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
@@ -47,5 +52,6 @@ export async function handler(event: APIGatewayProxyEventLike): Promise<APIGatew
 }
 
 export default handler;
+
 
 

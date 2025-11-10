@@ -23,7 +23,7 @@ src/
     dim-agent-sync/            # control-plane
       orchestrator.ts          # clear + repopulate DimAgent from ring group 8465
       entrypoints/
-        lambda.ts              # signed webhook/API
+        lambda.ts              # webhook/API (auth strategy to be added)
       schema.ts                # request/auth schema (optional)
     dim-metric-sync/           # control-plane
       orchestrator.ts          # validate payload, audit/version, clear + repopulate
@@ -80,8 +80,9 @@ src/
 
 ### `src/workflows/dim-agent-sync/` (control-plane)
 - `orchestrator.ts`: Clear `DimAgent`, fetch ring group members (8465), map and insert rows. Optional: update a Dynamo-based “activeAgents set.”
-- `entrypoints/lambda.ts`: Signed webhook/API to trigger the sync.
-- `schema.ts`: Request and auth schema (HMAC/API key).
+- `entrypoints/lambda.ts`: Webhook/API to trigger the sync (auth hardening planned). Accepts `dryRun` in the request body for validation flows.
+- `schema.ts`: Request and auth schema (HMAC/shared secret, optional).
+- Validation: service supports dependency injection and dry-run mode; `npm run test:dimagent` exercises the workflow contract with mocks.
 
 ### `src/workflows/dim-metric-sync/` (control-plane)
 - `orchestrator.ts`: Validate signed payload, audit+version, clear `DimMetric`, insert new monthly values.
@@ -98,7 +99,7 @@ src/
 - `schema.ts`: Rules schema.
 
 ### `src/config/`
-- `config.ts`: Load `AppConfig` from `process.env` with safe `.env` bootstrap; includes Power BI, Dynamo, HubSpot, Aloware (ring group), logging, and future admin auth keys (e.g., `ADMIN_HMAC_SECRET` or `ADMIN_API_KEY`).
+- `config.ts`: Load `AppConfig` from `process.env` with safe `.env` bootstrap; includes Power BI, Dynamo, HubSpot, Aloware (ring group), and logging. Future control-plane auth secrets can be added here once selected.
 - `logger.ts`: Structured logger with console + optional file output. Used across services/entrypoints.
 
 ### `src/domain/`
@@ -149,7 +150,7 @@ src/
 
 ### `src/entrypoints/lambda/`
 - `ingest.handler.ts`: Ingest lambda handler (current `handler.ts`). Parses API Gateway event, builds `IngestEnvelope`, calls orchestrator.
-- `admin/dimagent-sync.handler.ts`: Admin lambda to refresh `DimAgent`.
+- `admin/dimagent-sync.handler.ts`: Control-plane lambda to refresh `DimAgent`.
 - `admin/dimmetric-sync.handler.ts`: Admin lambda to refresh `DimMetric` from signed payload.
 - `admin/dimdate-seed.handler.ts`: Admin lambda to seed `DimDate`.
 - `admin/dimshift-sync.handler.ts`: Admin lambda to apply shift rules.
@@ -182,8 +183,8 @@ src/
 
 ## Configuration & Security
 - `.env` (already supported): Power BI, Dynamo, Aloware ring group, logging.
-- New (admin): `ADMIN_HMAC_SECRET` or `ADMIN_API_KEY`; optional `ADMIN_IP_ALLOWLIST`.
-- All admin handlers require auth and write audits + versions for idempotency/rollback.
+- Planned (control-plane): shared secret/HMAC + optional `ADMIN_IP_ALLOWLIST` once the scheme is finalized.
+- Control-plane handlers will require auth and write audits + versions for idempotency/rollback.
 
 ## Observability
 - Structured logs throughout services and handlers.

@@ -1,12 +1,12 @@
-import { alowareAdapter } from "../../../adapters/aloware.adapter";
-import { hubspotAdapter } from "../../../adapters/hubspot.adapter";
-import { withinBatchDedup, computeDedupKey } from "../../../ingest/idempotency";
-import { ensureDims } from "../../../services/ensure-dims.service";
-import { postFactEvents } from "../../../services/post-factevent.service";
-import { AdapterResult, IngestEnvelope } from "../../../domain/types";
-import { logger } from "../../../config/logger";
-import { checkAndMark } from "../../../integrations/idempotency/ledger.repo";
-import { loadConfig } from "../../../config/config";
+import { alowareAdapter } from "../../adapters/aloware.adapter";
+import { hubspotAdapter } from "../../adapters/hubspot.adapter";
+import { withinBatchDedup, computeDedupKey } from "../../ingest/idempotency";
+import { ensureDims } from "../../services/ensure-dims.service";
+import { postFactEvents } from "../../services/post-factevent.service";
+import { AdapterResult, IngestEnvelope } from "../../domain/types";
+import { logger } from "../../config/logger";
+import { checkAndMark } from "../../integrations/idempotency/ledger.repo";
+import { loadConfig } from "../../config/config";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -21,12 +21,7 @@ async function loadAlowareSdk(): Promise<any | null> {
     const url = pathToFileURL(abs).href;
     return await import(url);
   } catch {
-    try {
-      // Fallback to relative import if absolute fails
-      return await import("../../../sdks/aloware-sdk/src/index");
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 

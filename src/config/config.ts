@@ -14,9 +14,6 @@ export interface AppConfig {
     datasetId?: string;
     workspaceId?: string;
   };
-  admin?: {
-    apiKey?: string;
-  };
   dynamo: {
     tableName?: string;
     ttlDays?: number;
@@ -44,9 +41,6 @@ export function loadConfig(): AppConfig {
       clientSecret: process.env.POWERBI_CLIENT_SECRET,
       datasetId: process.env.POWERBI_DATASET_ID,
       workspaceId: process.env.POWERBI_WORKSPACE_ID,
-    },
-    admin: {
-      apiKey: process.env.ADMIN_API_KEY,
     },
     dynamo: {
       tableName: process.env.DYNAMO_TABLE_NAME,

@@ -27,6 +27,7 @@ All available scripts in `package.json`:
     - `npm run harness:aloware -- --dir data/aloware-webhooks --limit 25`
     - `npm run harness:aloware -- --pattern "_aloware.json" --limit 10`
   - Requirements: `.env` with Power BI and DynamoDB credentials. Outputs detailed logs per file and a summary.
+- **`npm run test:dimagent`**: Contract-style validation for the DimAgent control-plane workflow. Uses injected mocks to confirm call order (fetch → token → clear → push), dry-run behaviour, and zero-row paths. Safe to run locally; no network calls.
 
 ### DynamoDB Tools
 - **`npm run dynamo:local`**: Bootstrap DynamoDB Local via Docker and create the idempotency ledger table.
@@ -56,14 +57,16 @@ All available scripts in `package.json`:
 
 ### Admin Tools
 - **`npm run admin:sync-dimagents`**: Sync `DimAgent` table from Aloware ring group membership.
-  - Actions:
+  - Flags:
+    - `--dry-run`: Fetch roster and report counts without clearing or inserting rows (useful for validation checks).
+  - Actions (non-dry-run):
     1. DELETE all rows from `DimAgent` table
     2. Fetch current members from ring group `ALOWARE_RING_GROUP_ID` (default: 8465)
     3. INSERT members as `DimAgent` rows (AgentID, AgentName, Email, TimezoneIANA="", ActiveFlag=true)
   - Requirements: `.env` with:
     - Power BI: `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`, `POWERBI_WORKSPACE_ID`, `POWERBI_DATASET_ID`
     - Aloware: `ALOWARE_API_TOKEN`, `ALOWARE_RING_GROUP_ID` (defaults to 8465)
-  - Uses Power BI SDK push sink for rate-limited inserts
+  - Uses Power BI SDK push sink for rate-limited inserts and logs counts for validation.
 
 ## Source code structure (what we built and why)
 

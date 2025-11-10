@@ -1,9 +1,10 @@
-import { syncDimAgentsFromRingGroup, DimAgentSyncResult } from "../../services/admin/dimagent.sync.service";
+import { syncDimAgentsFromRingGroup, DimAgentSyncResult, DimAgentSyncOptions } from "../../services/admin/dimagent.sync.service";
 
-export async function runDimAgentSync(): Promise<DimAgentSyncResult> {
-  return await syncDimAgentsFromRingGroup();
+export async function runDimAgentSync(options?: DimAgentSyncOptions): Promise<DimAgentSyncResult> {
+  return await syncDimAgentsFromRingGroup(options);
 }
 
 export default runDimAgentSync;
+
 
 
